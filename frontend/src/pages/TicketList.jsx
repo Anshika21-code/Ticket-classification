@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
+import Stats from "../components/Stats";
+
 
 export default function TicketList() {
   const [tickets, setTickets] = useState([]);
@@ -9,6 +11,8 @@ export default function TicketList() {
   const [category, setCategory] = useState("general");
   const [priority, setPriority] = useState("low");
   const [status, setStatus] = useState("open");
+  const [refreshKey, setRefreshKey] = useState(0);
+
 
   const fetchTickets = async () => {
     try {
@@ -36,6 +40,8 @@ export default function TicketList() {
       setCategory("general");
       setPriority("low");
       setStatus("open");
+      setRefreshKey((prev) => prev + 1);
+
 
       fetchTickets();
     } catch (err) {
@@ -72,6 +78,8 @@ export default function TicketList() {
       <h1> Ticket List</h1>
 
       <h2 style={{ marginTop: "30px" }}> Create Ticket</h2>
+      <Stats refreshKey={refreshKey} />
+
 
       <form onSubmit={createTicket} style={{ marginBottom: "30px" }}>
         <input
@@ -122,12 +130,20 @@ export default function TicketList() {
           <option value="closed">Closed</option>
         </select>
 
-        <button type="button" onClick={(e) => { 
-  e.preventDefault(); 
-  handleAutoClassify(); 
-}}>
+        <button
+  type="button"
+  onClick={(e) => {
+    e.preventDefault();
+    handleAutoClassify();
+  }}
+>
   Auto Classify (LLM)
 </button>
+
+<button type="submit" style={{ marginLeft: "10px" }}>
+  Create Ticket
+</button>
+
 
 
       </form>
