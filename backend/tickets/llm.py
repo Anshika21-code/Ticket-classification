@@ -1,10 +1,140 @@
+# import os
+# import json
+# import google.generativeai as genai
+# import time
+
+
+
+# ALLOWED_CATEGORIES = {"billing", "technical", "account", "general"}
+# ALLOWED_PRIORITIES = {"low", "medium", "high", "critical"}
+
+# PROMPT = """
+# You are a support ticket classifier.
+
+# Given a user's support ticket description, return ONLY a JSON object:
+
+# {
+#   "suggested_category": "billing|technical|account|general",
+#   "suggested_priority": "low|medium|high|critical"
+# }
+
+# Rules:
+# - billing: payments, refunds, invoices, pricing, subscription charges
+# - technical: bugs, crashes, errors, performance, website/app not working
+# - account: login, password reset, verification, account access
+# - general: anything else
+
+# Priority:
+# - critical: system down, security issue, payment deducted but not received, business blocking
+# - high: cannot login, repeated failure, major feature broken
+# - medium: partial issue, workaround exists
+# - low: minor inconvenience, general question
+
+# Return ONLY valid JSON. No extra words.
+# """
+
+
+# def classify_description(description: str) -> dict:
+#     api_key = os.getenv("GEMINI_API_KEY")
+#     if not api_key:
+#         return {"suggested_category": "general", "suggested_priority": "low"}
+
+#     try:
+#         genai.configure(api_key=api_key)
+
+#         model = genai.GenerativeModel("models/gemini-flash-latest")
+
+
+#         response = model.generate_content(
+#             [
+#                 PROMPT.strip(),
+#                 f"DESCRIPTION:\n{description.strip()}",
+#             ]
+#         )
+
+#         raw = response.text.strip()
+
+#         # Gemini sometimes wraps output inside ```json ... ```
+#         raw = raw.replace("```json", "").replace("```", "").strip()
+
+#         data = json.loads(raw)
+
+#         category = data.get("suggested_category", "general")
+#         priority = data.get("suggested_priority", "low")
+
+#         if category not in ALLOWED_CATEGORIES:
+#             category = "general"
+
+#         if priority not in ALLOWED_PRIORITIES:
+#             priority = "low"
+
+#         return {"suggested_category": category, "suggested_priority": priority}
+
+#     except Exception as e:
+#         print("GEMINI ERROR:", str(e))
+#         msg = str(e)
+
+#         # retry once if rate limited
+#         if "429" in msg or "Quota exceeded" in msg:
+#             time.sleep(2)
+#             try:
+#                 response = model.generate_content(
+#                     [PROMPT.strip(), f"DESCRIPTION:\n{description.strip()}"]
+#                 )
+#                 raw = response.text.strip()
+#                 raw = raw.replace("```json", "").replace("```", "").strip()
+#                 data = json.loads(raw)
+
+#                 category = data.get("suggested_category", "general")
+#                 priority = data.get("suggested_priority", "low")
+
+#                 if category not in ALLOWED_CATEGORIES:
+#                     category = "general"
+#                 if priority not in ALLOWED_PRIORITIES:
+#                     priority = "low"
+
+#                 return {"suggested_category": category, "suggested_priority": priority}
+
+#             except Exception:
+#                 pass
+
+#         print("GEMINI ERROR:", msg)
+#         return {"suggested_category": "general", "suggested_priority": "low"}
+#         time.sleep(2)
+#         try:
+#             response = model.generate_content(
+#                 [PROMPT.strip(), f"DESCRIPTION:\n{description.strip()}"]
+#             )
+#             raw = response.text.strip()
+#             raw = raw.replace("```json", "").replace("```", "").strip()
+#             data = json.loads(raw)
+
+#             category = data.get("suggested_category", "general")
+#             priority = data.get("suggested_priority", "low")
+
+#             if category not in ALLOWED_CATEGORIES:
+#                 category = "general"
+#             if priority not in ALLOWED_PRIORITIES:
+#                 priority = "low"
+
+#             return {"suggested_category": category, "suggested_priority": priority}
+
+#         except Exception:
+#             pass
+
+#     print("GEMINI ERROR:", msg)
+#     return {"suggested_category": "general", "suggested_priority": "low"}
+ 
 import os
 import json
+import time
 import google.generativeai as genai
 
 
 ALLOWED_CATEGORIES = {"billing", "technical", "account", "general"}
 ALLOWED_PRIORITIES = {"low", "medium", "high", "critical"}
+
+MODEL_NAME = "models/gemini-flash-latest"
 
 PROMPT = """
 You are a support ticket classifier.
@@ -32,42 +162,61 @@ Return ONLY valid JSON. No extra words.
 """
 
 
+def _clean_json(text: str) -> dict:
+    """Cleans Gemini output and parses JSON safely."""
+    if not text:
+        return {}
+
+    raw = text.strip()
+    raw = raw.replace("```json", "").replace("```", "").strip()
+
+    return json.loads(raw)
+
+
 def classify_description(description: str) -> dict:
     api_key = os.getenv("GEMINI_API_KEY")
+
+    # If key missing, gracefully fallback
     if not api_key:
         return {"suggested_category": "general", "suggested_priority": "low"}
 
-    try:
-        genai.configure(api_key=api_key)
+    genai.configure(api_key=api_key)
+    model = genai.GenerativeModel(MODEL_NAME)
 
-        model = genai.GenerativeModel("models/gemini-flash-latest")
+    payload = [
+        PROMPT.strip(),
+        f"DESCRIPTION:\n{description.strip()}",
+    ]
 
+    # We will try max 2 times:
+    # - first normal
+    # - second if rate limited
+    for attempt in range(2):
+        try:
+            response = model.generate_content(payload)
 
-        response = model.generate_content(
-            [
-                PROMPT.strip(),
-                f"DESCRIPTION:\n{description.strip()}",
-            ]
-        )
+            data = _clean_json(response.text)
 
-        raw = response.text.strip()
+            category = data.get("suggested_category", "general")
+            priority = data.get("suggested_priority", "low")
 
-        # Gemini sometimes wraps output inside ```json ... ```
-        raw = raw.replace("```json", "").replace("```", "").strip()
+            if category not in ALLOWED_CATEGORIES:
+                category = "general"
+            if priority not in ALLOWED_PRIORITIES:
+                priority = "low"
 
-        data = json.loads(raw)
+            return {"suggested_category": category, "suggested_priority": priority}
 
-        category = data.get("suggested_category", "general")
-        priority = data.get("suggested_priority", "low")
+        except Exception as e:
+            msg = str(e)
 
-        if category not in ALLOWED_CATEGORIES:
-            category = "general"
+            # If rate limited, wait and retry once
+            if ("429" in msg or "Quota exceeded" in msg) and attempt == 0:
+                time.sleep(2)
+                continue
 
-        if priority not in ALLOWED_PRIORITIES:
-            priority = "low"
+            print("GEMINI ERROR:", msg)
+            return {"suggested_category": "general", "suggested_priority": "low"}
 
-        return {"suggested_category": category, "suggested_priority": priority}
-
-    except Exception as e:
-        print("GEMINI ERROR:", str(e))
-        return {"suggested_category": "general", "suggested_priority": "low"}
+    # Final fallback (should never reach here)
+    return {"suggested_category": "general", "suggested_priority": "low"}
