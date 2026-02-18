@@ -43,6 +43,26 @@ export default function TicketList() {
     }
   };
 
+  const handleAutoClassify = async () => {
+    try {
+      const res = await axios.post(
+        "http://127.0.0.1:8000/api/tickets/classify/",
+        { description }
+      );
+  
+      console.log("LLM Response:", res.data);
+  
+      const { suggested_category, suggested_priority } = res.data;
+  
+      if (suggested_category) setCategory(suggested_category);
+      if (suggested_priority) setPriority(suggested_priority);
+  
+    } catch (err) {
+      console.log("Auto classify error:", err);
+    }
+  };
+  
+
   useEffect(() => {
     fetchTickets();
   }, []);
@@ -102,7 +122,14 @@ export default function TicketList() {
           <option value="closed">Closed</option>
         </select>
 
-        <button type="submit">Create Ticket</button>
+        <button type="button" onClick={(e) => { 
+  e.preventDefault(); 
+  handleAutoClassify(); 
+}}>
+  Auto Classify (LLM)
+</button>
+
+
       </form>
 
       <h2> Tickets</h2>
