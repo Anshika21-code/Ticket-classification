@@ -9,6 +9,10 @@ from rest_framework.response import Response
 from .models import Ticket
 from .serializers import TicketSerializer
 
+from rest_framework.views import APIView
+from .llm import classify_description
+
+
 
 class TicketViewSet(viewsets.ModelViewSet):
     queryset = Ticket.objects.all()
@@ -60,3 +64,18 @@ class TicketViewSet(viewsets.ModelViewSet):
                 "category_breakdown": list(category_breakdown),
             }
         )
+
+class TicketClassifyView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        description = request.data.get("description", "")
+
+        if not description or not isinstance(description, str):
+            return Response(
+                {"detail": "description is required"},
+                status=400
+            )
+
+        result = classify_description(description)
+        return Response(result, status=200)
