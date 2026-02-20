@@ -19,9 +19,13 @@
 5. Frontend:
    http://localhost:5173
 
-## LLM Used
+## Screenshots while Testing 
+<img width="807.5" height="414.5" alt="image" src="https://github.com/user-attachments/assets/2811720a-eec2-4554-aabe-886227938f84" />
 
-## 🤖 LLM Choice
+## Screenshot after Completion
+<img width="958" height="459.5" alt="image" src="https://github.com/user-attachments/assets/b96f67db-2ada-4ee5-85b9-64ce6610cd9b" />
+
+## LLM Used
 
 Initially, I started integrating OpenAI for ticket classification. However, I quickly ran into API usage limits during testing, which made it difficult to properly validate the classification flow end-to-end.
 
@@ -37,7 +41,7 @@ The LLM is used to automatically classify support tickets into categories like:
 
 The API key is managed using environment variables to ensure it is not hardcoded in the project.
 
-## 🏗 Design Decisions
+##  Design Decisions
 
 ### 1. Clear Separation Between Frontend and Backend
 
